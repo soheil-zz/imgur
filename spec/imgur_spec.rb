@@ -1,146 +1,47 @@
-require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
-require 'imgur'
+require 'spec_helper'
+require 'imgurapi'
 
 describe Imgurapi do
 
-  describe 'placeholder classes' do
-
-    it 'should create an Image with the fields provided' do
-      image = Imgurapi::Image.new
-      image.should be_an_instance_of Imgurapi::Image
-
-      fields = {:a => 1, :b => 2}
-      image = Imgurapi::Image.new(fields)
-      image.should be_an_instance_of Imgurapi::Image
-      image.a.should eq(1)
-      image.b.should eq(2)
-    end
-
-    it 'should create a Link with the fields provided' do
-      links = Imgurapi::Links.new
-      links.should be_an_instance_of Imgurapi::Links
-
-      fields = {:a => 1, :b => 2}
-      links = Imgurapi::Links.new(fields)
-      links.should be_an_instance_of Imgurapi::Links
-      links.a.should eq(1)
-      links.b.should eq(2)
-    end
-
-  end
-
-  describe 'api' do
-
-    it 'should return a download URL' do
-      imgur_hash = 'random_valid_hash'
-
-      @session.url(:foo).should eq('')
-      @session.url().should eq('')
-      @session.url(imgur_hash).should eq("http://i.imgur.com/#{imgur_hash}.jpg")
-      @session.url(imgur_hash, :random_size).should eq("http://i.imgur.com/#{imgur_hash}.jpg")
-      @session.url(imgur_hash, :small_square).should eq("http://i.imgur.com/#{imgur_hash}s.jpg")
-      @session.url(imgur_hash, :large_thumbnail).should eq("http://i.imgur.com/#{imgur_hash}l.jpg")
-    end
-
-  end
-
-  describe 'communication' do
-
-    before(:all) do
-      credentials = read_credentials_file
-      @session = Imgurapi::Session.new(credentials)
-    end
-
-    it 'should parse_message' do
-      @session.send(:parse_message, '[]').should eq([])
-      expect { session.send(:parse_message) }.to raise_error
-    end
-
-    it 'should process_message' do
-      Response = Struct.new(:code, :body)
-
-      response = Response.new(200, '[]')
-      @session.send(:process_response, response).should eq([])
-
-      response = Response.new(404, '[]')
-      @session.send(:process_response, response).should eq([])
-
-      response = Response.new(401, '{"error": {"message": "1"}}')
-      expect { @session.send(:process_response, response) }.to raise_error "Unauthorized: 1"
-
-      response = Response.new(500, '{"error": {"message": "1"}}')
-      expect { @session.send(:process_response, response) }.to raise_error "Unauthorized: 1"
-
-      code = rand(999)
-      response = Response.new(code, '')
-      expect { @session.send(:process_response, response) }.to raise_error "Response code #{code} not recognized"
-    end
-
-    it 'should compose_image' do
-      @session.send(:compose_image, {}).should eq(nil)
-      @session.send(:compose_image, {:imags => {:image => {}, :links => {}}}).should eq(nil)
-      @session.send(:compose_image, {:images => {:imae => {}, :links => {}}}).should eq(nil)
-      @session.send(:compose_image, {:images => {:image => {}, :lins => {}}}).should eq(nil)
-      @session.send(:compose_image, {:images => {}}).should eq(nil)
-
-      from_hash = {:images => {:image => {}, :links => {}}}
-      @session.send(:compose_image, from_hash).should be_an_instance_of Imgurapi::Image
-      @session.send(:compose_image, from_hash).links.should be_an_instance_of Imgurapi::Links
-    end
-
+  def file(name)
+    File.open(name, 'r')
   end
 
   describe 'image management calls' do
 
     before(:all) do
       credentials = read_credentials_file
-      @session = Imgurapi::Session.new(credentials)
-      @upload_path, @upload_file = my_sample_image
+      @session = Imgurapi::Session.instance(credentials)
     end
 
-    it 'should return my account information' do
-      @session.account.should be_an_instance_of Hash
+    it 'returns my account information' do
+      expect(@session.account.account).to be_an_instance_of Imgurapi::Account
     end
 
-    it 'should return the number of images stored' do
-      @session.images_count.should > 0
+    it 'fails uploading an image' do
+      expect { @session.image.image_upload('') }.to raise_error
     end
 
-    it 'should upload the image' do
-      expect { @session.upload('') }.to raise_error
-      expect { @session.upload(:not_the_expected_object) }.to raise_error
+    it 'uploads and returns the number of images stored' do
+      image = @session.image.image_upload(file('sample.jpg'))
 
-      @@image_by_path = @session.upload(@upload_path) #FIXME I know this is horrible, but I need to share the same image between tests http://brentlavelle.wordpress.com/2011/04/04/rspec-and-instance-variables/
-      @@image_by_path.should be_an_instance_of Imgurapi::Image
-
-      @@image_by_file = @session.upload(@upload_file)
-      @@image_by_file.should be_an_instance_of Imgurapi::Image
+      expect(@session.account.image_count).to be >= 1
     end
 
-    it 'should retrieve the image' do
-      expect { @session.find(:not_an_image_hash) }.to raise_error
-      expect { @session.find('r4ndom ha5h') }.to raise_error
+    it 'uploads and retrieves the image' do
+      image_uploaded = @session.image.image_upload(file('sample2.jpg'))
 
-      image = @session.find('valid_hash_not_related_to_any_image')
-      image.should be_nil
+      image_retrieved = @session.image.image image_uploaded.id
 
-      image = @session.find(@@image_by_path.hash)
-      image.should be_an_instance_of Imgurapi::Image
-
-      image.hash.should eq(@@image_by_path.hash)
+      expect(image_retrieved.id).to eq image_uploaded.id
     end
 
-    it 'should delete the image' do
-      expect { @session.destroy(:not_an_image_hash) }.to raise_error
-      expect { @session.destroy('r4ndom ha5h') }.to raise_error
+    it 'deletes the image' do
+      image_uploaded = @session.image.image_upload(file('sample3.jpg'))
+      id = image_uploaded.id
 
-      @session.destroy('valid_hash_not_related_to_any_image').should be_false
-
-      @session.destroy(@@image_by_path).should be_true #deletes first image
-
-      @session.destroy(@@image_by_file.hash).should be_true #deletes second image
+      expect(@session.image.image_delete(image_uploaded)).to be_truthy
+      expect(@session.image.image id).to be_nil
     end
-
   end
-
 end

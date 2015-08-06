@@ -6,7 +6,7 @@ module Imgurapi
       def image(id)
         raise 'Please provide a valid image identificator' if id.nil? or !id.kind_of? String or id == '' or !!(id =~ /[^\w]/)
 
-        Imgurapi::Image.new communication.call(:get, "image/#{id}")
+        build_image communication.call(:get, "image/#{id}")
       end
 
       # https://api.imgur.com/endpoints/image#image-upload
@@ -19,7 +19,7 @@ module Imgurapi
           raise 'Must provide a File or file path'
         end
 
-        Imgurapi::Image.new communication.call(:post, 'image', image: Base64.encode64(file.read))
+        build_image communication.call(:post, 'image', image: Base64.encode64(file.read))
       end
 
       # https://api.imgur.com/endpoints/image#image-delete
@@ -31,6 +31,13 @@ module Imgurapi
         raise 'Please provide a valid image identificator' if id.nil? or !id.kind_of? String or id == '' or !!(id =~ /[^\w]/)
 
         communication.call(:delete, "image/#{id}")
+      end
+
+      private
+
+      def build_image(response)
+        return nil if response['error']
+        Imgurapi::Image.new response
       end
     end
   end

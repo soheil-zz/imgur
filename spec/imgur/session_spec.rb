@@ -1,20 +1,23 @@
 require_relative '../spec_helper'
-require 'imgur'
+require 'imgurapi'
 
-describe Imgurapiapi::Session do
+describe Imgurapi::Session do
 
-  context 'incorrect credentials' do
-    it { expect { Imgurapi::Session.new }.to raise_error }
-    it { expect { Imgurapi::Session.new(random_key: nil) }.to raise_error }
-    it { expect { Imgurapi::Session.new(client_id: nil, random_key: nil) }.to raise_error }
-    it { expect { Imgurapi::Session.new({}) }.to raise_error }
-  end
+  describe '.new' do
 
-  context 'correct credentials' do
-    it do
-      expect(
-        Imgurapi::Session.new(client_id: 'ID', client_secret: 'SECRET', refresh_token: 'TOKEN')
-      ).to be_an_instance_of Imgurapi::Session
+    context 'incorrect credentials' do
+      it { expect { described_class.new }.to raise_error }
+      it { expect { described_class.new(random_key: nil) }.to raise_error }
+      it { expect { described_class.new(client_id: nil, random_key: nil) }.to raise_error }
+      it { expect { described_class.new({}) }.to raise_error }
+    end
+
+    context 'correct credentials' do
+      it do
+        expect(
+          described_class.new(client_id: 'ID', client_secret: 'SECRET', refresh_token: 'TOKEN')
+        ).to be_an_instance_of described_class
+      end
     end
   end
 end

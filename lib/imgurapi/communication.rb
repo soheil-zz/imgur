@@ -26,7 +26,10 @@ module Imgurapi
         return parse_message(response.body)['data']
       when 401, 500
         error_message = parse_message response.body
-        raise "Unauthorized: #{error_message['error']['message']}"
+        raise "Unauthorized: #{error_message['data']['error']}"
+      when 400
+        error_message = parse_message response.body
+        raise "Bad request: #{error_message['data']['error']}"
       when 403
         get_new_and_reset_token
 
